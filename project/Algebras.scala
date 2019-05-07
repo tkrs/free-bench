@@ -36,8 +36,7 @@ object Algebras {
       import tv._
 
       val b = nums.map { n =>
-       s"""
-           |sealed trait A$n[A]
+       s"""sealed trait A$n[A]
            |object A$n {
            |  final case class Foo(value: Int) extends A$n[Unit]
            |  type _a$n[R] = A$n |= R
@@ -60,8 +59,7 @@ object Algebras {
       import tv._
 
       val b = nums.map { n =>
-        s"""
-           |class A${n}s[F[a] <: CopK[_, a]](implicit inj: CopK.Inject[A$n, F]) {
+        s"""class A${n}s[F[a] <: CopK[_, a]](implicit inj: CopK.Inject[A$n, F]) {
            |  def foo(value: Int): Free[F, Unit] = Free.inject[A$n, F](A$n.Foo(value))
            |}
            |object A${n}s {
@@ -194,20 +192,18 @@ object Algebras {
 
       val b = nums.map { n =>
         val range = 0.to(n)
-        s"""object Runs$n {
-           |  def run[M[_]](implicit M: Monad[M]): M[Unit] = {
-           |    import I._
-           |    val fk: P$n.T ~> M = CopK.FunctionK.summon
-           |    P$n.program.foldMap(fk)
-           |  }
-           |  def runC[M[_]](implicit M: Monad[M]): M[Unit] = {
-           |    val fk: Px$n.T ~> M = ${genEitherKInterp(range.map(i => s"I.a${i}Interpreter").toList.reverse, "")}
-           |    Px$n.program.foldMap(fk)
-           |  }
-           |  def runE: Unit = {
-           |    type Stack = Fx.fx${n + 2}[${range.map(i => s"A${i}").mkString(", ")}, Reader[Int, ?]]
-           |    ${genEffInterp(range.map(i => s"I.runA${i}").toList, s"Py$n.program[Stack]")}
-           |  }
+        s"""@State(Scope.Benchmark)
+           |class Runs$n {
+           |  import I._
+           |  import instances.M 
+           |  private[this] implicit val _m: Monad[M] = M
+           |  val fk: P$n.T ~> M = CopK.FunctionK.summon
+           |  val fkC: Px$n.T ~> M = ${genEitherKInterp(range.map(i => s"a${i}Interpreter").toList.reverse, "")}
+           |  type Stack = Fx.fx${n + 2}[${range.map(i => s"A${i}").mkString(", ")}, M]
+           |
+           |  def run: Unit  = P$n.program.foldMap(fk).run(0)
+           |  def runC: Unit = Px$n.program.foldMap(fkC).run(0)
+           |  def runE: Unit = ${genEffInterp(range.map(i => s"runA${i}").toList, s"Py$n.program[Stack]")}
            |}
            |""".stripMargin
       } mkString "\n"
@@ -220,8 +216,17 @@ object Algebras {
          |import _root_.iota.CopK
          |import _root_.org.atnos.eff._
          |import _root_.org.atnos.eff.syntax.all._
+         |import _root_.org.openjdk.jmh.annotations._
          |
+         |object instances {
+         |  import cats.implicits._
+         |  type M[A] = Reader[Int, A]
+         |  val M = implicitly[Monad[M]]
+         |}
+         |
+         |object states {
          |$b
+         |}
          |""".stripMargin
     }
   }
@@ -233,11 +238,11 @@ object Algebras {
         s"""
            |class Benches${n} extends Base {
            |  @Benchmark
-           |  def copk_algebra(b: Blackhole): Unit = b.consume(Runs$n.run[Kleisli[Id, Int, ?]].run(0))
+           |  def copk_algebra(r: Runs${n}, b: Blackhole): Unit = b.consume(r.run)
            |  @Benchmark
-           |  def eitherK_algebra(b: Blackhole): Unit = b.consume(Runs$n.runC[Kleisli[Id, Int, ?]].run(0))
+           |  def eitherk_algebra(r: Runs${n}, b: Blackhole): Unit = b.consume(r.runC)
            |  @Benchmark
-           |  def eff_algebra(b: Blackhole): Unit = b.consume(Runs$n.runE)
+           |  def eff_algebra(r: Runs${n}, b: Blackhole): Unit = b.consume(r.runE)
            |}
          """.stripMargin
       }
@@ -246,12 +251,13 @@ object Algebras {
         s"""package algebras
            |
            |import _root_.cats.Id
-           |import _root_.cats.data.Kleisli
-           |import _root_.cats.implicits._
+           |import _root_.cats.data.Reader
            |import _root_.org.openjdk.jmh.annotations._
            |import _root_.org.openjdk.jmh.infra._
            |
            |import scala.concurrent.duration._
+           |
+           |import states._
            |""".stripMargin
 
       h + b.mkString("\n")
