@@ -1,0 +1,4 @@
+#! /usr/bin/env bash
+
+sbt -no-colors clean "jmh:run -rf json -rff algebra-thrp.json -o algebra-thrp.txt -prof gc ${1:-}"
+sbt -no-colors clean "jmh:run -rf json -rff algebra-avgt.json -o algebra-avgt.txt -prof gc -bm avgt -tu ns ${1:-}"
