@@ -156,12 +156,17 @@ object Algebras {
            |    ${range.map(i => s"_ <- a$i.foo($i)").mkString("\n")}
            |  } yield ()
            |}
+           |object Pz$n {
+           |  def program: Reader[Int, Unit] = for {
+           |    ${range.map(i => s"_ <- Reader[Int, Unit](_ => ())").mkString("\n")}
+           |  } yield ()
+           |}
            |""".stripMargin
       } mkString "\n"
 
       s"""package algebras
          |
-         |import _root_.cats.data.EitherK
+         |import _root_.cats.data.{EitherK, Reader}
          |import _root_.cats.free.Free
          |import _root_.iota.{CopK, TNilK}
          |import _root_.iota.TListK.:::
@@ -204,6 +209,7 @@ object Algebras {
            |  def run: Unit  = P$n.program.foldMap(fk).run(0)
            |  def runC: Unit = Px$n.program.foldMap(fkC).run(0)
            |  def runE: Unit = ${genEffInterp(range.map(i => s"runA${i}").toList, s"Py$n.program[Stack]")}
+           |  def runR: Unit = Pz$n.program.run(0)
            |}
            |""".stripMargin
       } mkString "\n"
@@ -243,6 +249,8 @@ object Algebras {
            |  def eitherk_algebra(r: Runs${n}, b: Blackhole): Unit = b.consume(r.runC)
            |  @Benchmark
            |  def eff_algebra(r: Runs${n}, b: Blackhole): Unit = b.consume(r.runE)
+           |  @Benchmark
+           |  def reader(r: Runs${n}, b: Blackhole): Unit = b.consume(r.runR)
            |}
          """.stripMargin
       }
