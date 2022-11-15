@@ -1,8 +1,8 @@
 package algebras
 
-import _root_.org.openjdk.jmh.annotations._
+import _root_.java.util.concurrent.TimeUnit.SECONDS
 
-import scala.concurrent.duration._
+import _root_.org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))

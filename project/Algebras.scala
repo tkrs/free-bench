@@ -77,8 +77,10 @@ object Algebras {
 
       val b2 = nums.map { n =>
         s"""|
-            |  implicit def a${n}Interpreter[M[_]](implicit M: Monad[M]): A$n ~> M = λ[A$n ~> M] {
-            |    case A$n.Foo(_) => M.pure(())
+            |  implicit def a${n}Interpreter[M[_]](implicit M: Monad[M]): A$n ~> M = new (A$n ~> M) {
+            |    def apply[A](fa: A${n}[A]): M[A] = fa match {
+            |      case A$n.Foo(_) => M.pure(())
+            |    }
             |  }
             |
             |  def runA${n}[R, U, A](effect: Eff[R, A])(implicit m: Member.Aux[A${n}, R, U], reader: types._readerInt[U]): Eff[U, A] = {
@@ -101,7 +103,7 @@ object Algebras {
             |import _root_.org.atnos.eff.interpret._
             |
             |object types {
-            |  type _readerInt[R] = Reader[Int, *] |= R
+            |  type _readerInt[R] = Reader[Int, _] |= R
             |}
             |
             |""".stripMargin
@@ -122,9 +124,9 @@ object Algebras {
             s"EitherK[$h, $acc, A]"
           case h :: t =>
             if (acc.isEmpty)
-              genEitherKType(t.tail, s"EitherK[${t.head}, $h, *]")
+              genEitherKType(t.tail, s"EitherK[${t.head}, $h, _]")
             else
-              genEitherKType(t, s"EitherK[$h, $acc, *]")
+              genEitherKType(t, s"EitherK[$h, $acc, _]")
         }
 
       val b = nums.map { n =>
@@ -134,17 +136,17 @@ object Algebras {
         s"""|object Px$n {
             |  type T[A] = ${if (types.size == 1) "A0[A]" else if (types.size == 2) "EitherK[A0, A1, A]" else genEitherKType(types, "")}
             |  def program(implicit ${range.map(i => s"a$i: A${i}ss[T]").mkString(", ")}): Free[T, Unit] = for {
-            |    ${range.map(i => s"_ <- a$i.foo($i)").mkString("\n")}
+            |${range.map(i => s"    _ <- a$i.foo($i)").mkString("\n")}
             |  } yield ()
             |}
             |object Py$n {
             |  def program[R: ${_types.mkString(" : ")} : types._readerInt](implicit ${range.map(i => s"a$i: A${i}sss[R]").mkString(", ")}): Eff[R, Unit] = for {
-            |    ${range.map(i => s"_ <- a$i.foo($i)").mkString("\n")}
+            |${range.map(i => s"    _ <- a$i.foo($i)").mkString("\n")}
             |  } yield ()
             |}
             |object Pz$n {
             |  def program: Reader[Int, Unit] = for {
-            |    ${range.map(i => s"_ <- Reader[Int, Unit](_ => ())").mkString("\n")}
+            |${range.map(i => s"    _ <- Reader[Int, Unit](_ => ())").mkString("\n")}
             |  } yield ()
             |}
             |""".stripMargin
