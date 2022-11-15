@@ -21,7 +21,6 @@ import scala.concurrent.duration._
     "-XX:InitialCodeCacheSize=512m",
     "-XX:ReservedCodeCacheSize=512m",
     "-XX:+UseG1GC",
-    "-XX:-UseBiasedLocking",
     "-XX:+AlwaysPreTouch"
   )
 )
