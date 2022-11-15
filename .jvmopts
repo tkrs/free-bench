@@ -3,4 +3,3 @@
 -XX:MaxMetaspaceSize=512M
 -XX:+UseCompressedOops
 -XX:+TieredCompilation
--XX:+CMSClassUnloadingEnabled
